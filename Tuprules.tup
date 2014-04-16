@@ -1,0 +1,14 @@
+CFLAGS += -Wall -O2 -g
+CC = gcc
+LD = gcc
+
+TOP = $(TUP_CWD)
+TOOLS = $(TOP)/tools
+LEMON = $(TOOLS)/lemon/lemon
+MH = $(TOOLS)/makeheaders/makeheaders
+
+!cc = |> $(CC) -c %f -o %o -g |> %B.o <objs>
+!ld = |> $(LD) -o %o %f |>
+!ccld = |> $(CC) %f -o %o |>
+!lemon = | $(LEMON) |> $(LEMON) %f -m |> %B.c <impl>| %B.out
+!mh = | $(MH) |> $(MH) %f:%o |> <headers>

@@ -1,0 +1,24 @@
+%name irc_Parse
+%token_prefix IRC_
+%include {#include <assert.h>}
+
+message ::= prefix command params CRLF.
+
+prefix ::= .
+prefix ::= COLON NICKNAME user host SPACE.
+prefix ::= COLON SERVERNAME SPACE.
+
+user ::= .
+user ::= EXCLAMATION USER.
+
+host ::= .
+host ::= AT HOST.
+
+command ::= CMD_PING.
+command ::= CMD_PONG.
+command ::= CMD_QUIT.
+command ::= CMD_PRIVMSG.
+
+params ::= .
+params ::= params PARAM.
+params ::= params COLON TRAILING.

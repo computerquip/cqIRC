@@ -1,0 +1,172 @@
+State 0:
+          message ::= * prefix command params CRLF
+      (1) prefix ::= *
+          prefix ::= * COLON NICKNAME user host SPACE
+          prefix ::= * COLON SERVERNAME SPACE
+
+                         COLON shift  6
+                       message accept
+                        prefix shift  1
+                     {default} reduce 1
+
+State 1:
+          message ::= prefix * command params CRLF
+          command ::= * CMD_PING
+          command ::= * CMD_PONG
+          command ::= * CMD_QUIT
+          command ::= * CMD_PRIVMSG
+
+                      CMD_PING shift  20
+                      CMD_PONG shift  19
+                      CMD_QUIT shift  18
+                   CMD_PRIVMSG shift  17
+                       command shift  4
+
+State 2:
+          prefix ::= COLON NICKNAME user * host SPACE
+      (6) host ::= *
+          host ::= * AT HOST
+
+                            AT shift  9
+                          host shift  10
+                     {default} reduce 6
+
+State 3:
+          prefix ::= COLON NICKNAME * user host SPACE
+      (4) user ::= *
+          user ::= * EXCLAMATION USER
+
+                   EXCLAMATION shift  8
+                          user shift  2
+                     {default} reduce 4
+
+State 4:
+          message ::= prefix command * params CRLF
+     (12) params ::= *
+          params ::= * params PARAM
+          params ::= * params COLON TRAILING
+
+                        params shift  5
+                     {default} reduce 12
+
+State 5:
+          message ::= prefix command params * CRLF
+          params ::= params * PARAM
+          params ::= params * COLON TRAILING
+
+                          CRLF shift  12
+                         COLON shift  11
+                         PARAM shift  22
+
+State 6:
+          prefix ::= COLON * NICKNAME user host SPACE
+          prefix ::= COLON * SERVERNAME SPACE
+
+                      NICKNAME shift  3
+                    SERVERNAME shift  7
+
+State 7:
+          prefix ::= COLON SERVERNAME * SPACE
+
+                         SPACE shift  13
+
+State 8:
+          user ::= EXCLAMATION * USER
+
+                          USER shift  14
+
+State 9:
+          host ::= AT * HOST
+
+                          HOST shift  15
+
+State 10:
+          prefix ::= COLON NICKNAME user host * SPACE
+
+                         SPACE shift  16
+
+State 11:
+          params ::= params COLON * TRAILING
+
+                      TRAILING shift  21
+
+State 12:
+      (0) message ::= prefix command params CRLF *
+
+                             $ reduce 0
+
+State 13:
+      (3) prefix ::= COLON SERVERNAME SPACE *
+
+                     {default} reduce 3
+
+State 14:
+      (5) user ::= EXCLAMATION USER *
+
+                     {default} reduce 5
+
+State 15:
+      (7) host ::= AT HOST *
+
+                     {default} reduce 7
+
+State 16:
+      (2) prefix ::= COLON NICKNAME user host SPACE *
+
+                     {default} reduce 2
+
+State 17:
+     (11) command ::= CMD_PRIVMSG *
+
+                     {default} reduce 11
+
+State 18:
+     (10) command ::= CMD_QUIT *
+
+                     {default} reduce 10
+
+State 19:
+      (9) command ::= CMD_PONG *
+
+                     {default} reduce 9
+
+State 20:
+      (8) command ::= CMD_PING *
+
+                     {default} reduce 8
+
+State 21:
+     (14) params ::= params COLON TRAILING *
+
+                     {default} reduce 14
+
+State 22:
+     (13) params ::= params PARAM *
+
+                     {default} reduce 13
+
+----------------------------------------------------
+Symbols:
+    0: $:
+    1: CRLF
+    2: COLON
+    3: NICKNAME
+    4: SPACE
+    5: SERVERNAME
+    6: EXCLAMATION
+    7: USER
+    8: AT
+    9: HOST
+   10: CMD_PING
+   11: CMD_PONG
+   12: CMD_QUIT
+   13: CMD_PRIVMSG
+   14: PARAM
+   15: TRAILING
+   16: error:
+   17: message: COLON CMD_PING CMD_PONG CMD_QUIT CMD_PRIVMSG
+   18: prefix: <lambda> COLON
+   19: command: CMD_PING CMD_PONG CMD_QUIT CMD_PRIVMSG
+   20: params: <lambda> COLON PARAM
+   21: user: <lambda> EXCLAMATION
+   22: host: <lambda> AT

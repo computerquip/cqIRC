@@ -1,0 +1,6 @@
+include_rules
+
+: *.lex |> flex --outfile=%b.c --header-file=%b.h %f |> | %b.c %b.h
+: *.parse |> !lemon |>
+: irc.c |> !mh |> irc.h
+: foreach *.c | irc.h |> !cc |>
