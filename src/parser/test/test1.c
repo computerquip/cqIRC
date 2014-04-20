@@ -1,5 +1,9 @@
 #include <stdio.h>
 
+#define YY_DECL int yylex(yyscan_t yyscanner, char** data)
+#define TEST_2
+
+#include "../irc-types.h"
 #include "../irc.lex.h"
 #include "../irc.h"
 
@@ -32,8 +36,10 @@ const char *token2string_table[] = {
 
 const int num_strings = sizeof(test_strings)/sizeof(char*);
 
+
 void test1()
 {
+#ifdef TEST_1
 	yyscan_t scanner;
 
 	printf("Test 1 starting...\n");
@@ -58,10 +64,12 @@ void test1()
 		yy_delete_buffer(state, scanner);
 	}
 	yylex_destroy(scanner);
+#endif
 }
 
 void test2()
 {
+#ifdef TEST_2
 	yyscan_t scanner;
 	void *parser = irc_ParseAlloc(malloc);
 
@@ -86,8 +94,14 @@ void test2()
 		printf("%s\n", test_strings[i]);
 
 		int token = 0;
-		while (token = yylex(scanner)) {
-			irc_Parse(parser, token, NULL);
+		char *data = NULL;
+
+		while (token = yylex(scanner, &data)) {
+
+			printf("Token %i: %s\n", token, data);
+			irc_Parse(parser, token, data);
+
+			data = NULL;
 		}
 
 		irc_Parse(parser, 0, NULL);
@@ -97,6 +111,7 @@ void test2()
 	}
 	yylex_destroy(scanner);
 	irc_ParseFree(parser, free);
+#endif
 }
 
 int main()

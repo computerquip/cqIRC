@@ -5,6 +5,8 @@
 %x PARAMS
 %x PARAM
 %x TRAILING
+%x PRE_COMMAND
+
 %option reentrant
 %option noyywrap
 %option case-insensitive
@@ -17,49 +19,56 @@ nickname	([[:alpha:]]|{special})([[:alnum:]]|{special}|"-")*{0,8}
 shortname	[[:alnum:]]([[:alnum:]]|"-")*[[:alnum:]]*
 host 		{hostchar}({hostchar}|"-"|"."|":")*
 hostname	{shortname}(\.{shortname})*
-servername	("*"|{shortname})(\.{shortname})+
+servername	{hostname}
 middle		[^\:\0\r\n\ ][^\ \0\r\n]*
 crlf 		(\r\n|\n\r)
 
 %{
+	#include "irc-types.h"
 	#include "irc.h"
 	#include <assert.h>
+
+	#define YY_DECL int yylex(yyscan_t yyscanner, char** data)
 %}
 
 %%
 
 <INITIAL>{
-	":"					BEGIN(PREFIX); return IRC_COLON;
-	"PING"				BEGIN(PARAMS); return IRC_CMD_PING;
-	"PONG"				BEGIN(PARAMS); return IRC_CMD_PONG;
-	"QUIT"  			BEGIN(PARAMS); return IRC_CMD_QUIT;
-	"PRIVMSG"			BEGIN(PARAMS); return IRC_CMD_PRIVMSG;
+	":"					BEGIN(PREFIX);
+	"PING"				BEGIN(PARAMS); return IRC_TOKEN_CMD_PING;
+	"PONG"				BEGIN(PARAMS); return IRC_TOKEN_CMD_PONG;
+	"QUIT"  			BEGIN(PARAMS); return IRC_TOKEN_CMD_QUIT;
+	"PRIVMSG"			BEGIN(PARAMS); return IRC_TOKEN_CMD_PRIVMSG;
 }
 
 <PREFIX>{
-	{servername}		BEGIN(PREFIX_OPT); return IRC_SERVERNAME;
-	{nickname}			BEGIN(PREFIX_OPT); return IRC_NICKNAME;
+	{nickname} 			BEGIN(PREFIX_OPT); *data = strndup(yytext, yyleng); return IRC_TOKEN_SOURCE;
+	{servername}		BEGIN(PRE_COMMAND); *data = strndup(yytext, yyleng); return IRC_TOKEN_SOURCE;
+}
+
+<PRE_COMMAND>{
+	" " 				BEGIN(INITIAL);
 }
 
 <PREFIX_OPT>{
-	"!"					BEGIN(PREFIX_USER); return IRC_EXCLAMATION;
-	"@"					BEGIN(PREFIX_HOST); return IRC_AT;
-	" "					BEGIN(INITIAL); return IRC_SPACE;
+	"!"					BEGIN(PREFIX_USER);
+	"@"					BEGIN(PREFIX_HOST);
+	" "					BEGIN(INITIAL);
 }
 
-<PREFIX_USER>{user} 	BEGIN(PREFIX_OPT); return IRC_USER;
-<PREFIX_HOST>{host} 	BEGIN(PREFIX_OPT); return IRC_HOST;
+<PREFIX_USER>{user} 	BEGIN(PREFIX_OPT); *data = strndup(yytext, yyleng); return IRC_TOKEN_USER;
+<PREFIX_HOST>{host} 	BEGIN(PREFIX_OPT); *data = strndup(yytext, yyleng); return IRC_TOKEN_HOST;
 
 <PARAMS>{
-	" "					BEGIN(PARAM); return IRC_SPACE;
-	{crlf}				BEGIN(INITIAL); return IRC_CRLF;
+	" "					BEGIN(PARAM);
+	{crlf}				BEGIN(INITIAL); return IRC_TOKEN_CRLF;
 }
 
 <PARAM>{
-	":"					BEGIN(TRAILING); return IRC_COLON;
-	{middle}			BEGIN(PARAMS); return IRC_PARAM;
+	":"					BEGIN(TRAILING);
+	{middle}			BEGIN(PARAMS); *data = strndup(yytext, yyleng); return IRC_TOKEN_PARAM;
 }
 
 <TRAILING>{
-	[^\0\n\r]*			BEGIN(PARAMS); return IRC_TRAILING;
+	[^\0\n\r]*			BEGIN(PARAMS); *data = strndup(yytext, yyleng); return IRC_TOKEN_TRAILING;
 }

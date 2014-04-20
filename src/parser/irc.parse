@@ -1,24 +1,72 @@
 %name irc_Parse
-%token_prefix IRC_
-%include {#include <assert.h>}
 
-message ::= prefix command params CRLF.
+%token_prefix IRC_TOKEN_
+
+%token_type 	{ char* }
+%type host 		{ char* }
+%type user 		{ char* }
+%type prefix 	{ struct cq_irc_prefix }
+%type params 	{ struct cq_irc_param* }
+
+%include {
+	#include "irc-types.h"
+	#include "irc-signal.h"
+	#include <assert.h>
+	#include <stdio.h>
+	#include <stdlib.h>
+}
+
+message ::= prefix command params(D) CRLF. {
+	/* Let's try transitioning through params... */
+	struct cq_irc_param *param = D;
+
+
+	while (param != NULL) {
+		printf("Param: %s\n", param->data);
+		param = param->prev;
+	}
+}
 
 prefix ::= .
-prefix ::= COLON NICKNAME user host SPACE.
-prefix ::= COLON SERVERNAME SPACE.
+prefix(A) ::= SOURCE(B) user(C) host(D). { 
+	A.source = B;
+	A.user = C;
+	A.host = D;
 
-user ::= .
-user ::= EXCLAMATION USER.
+	printf("Source: %s\n", A.source);
+	printf("User: %s\n", A.user);
+	printf("Host: %s\n", A.host);
+}
 
-host ::= .
-host ::= AT HOST.
+user(A) ::= . { A = NULL; }
+user(A)	::= USER(B). { A = B; }
+
+host(A) ::= . { A = NULL; }
+host(A)	::= HOST(B). { A = B; }	
 
 command ::= CMD_PING.
 command ::= CMD_PONG.
-command ::= CMD_QUIT.
-command ::= CMD_PRIVMSG.
+command ::= CMD_QUIT.	
+command ::= CMD_PRIVMSG. 
 
-params ::= .
-params ::= params PARAM.
-params ::= params COLON TRAILING.
+params(A)	::= . { A = NULL; }
+params(A) 	::= params(B) PARAM(C). 	{ 
+		printf("Middle: %s\n", C);
+
+		A = calloc(1, sizeof(struct cq_irc_param)); 
+
+		if (B) A->prev = B;
+		
+		A->data = C; 
+	}
+
+params(A)	::= params(B) TRAILING(C).	{ 
+
+		printf("Trailing: %s\n", C);
+
+		A = calloc(1, sizeof(struct cq_irc_param)); 
+
+		if (B) A->prev = B;
+		
+		A->data = C; 
+	}
