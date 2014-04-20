@@ -6,8 +6,7 @@
 %type host 		{ char* }
 %type user 		{ char* }
 %type trailing	{ char* }
-%type prefix 	{ struct cq_irc_prefix }
-%type params 	{ struct cq_irc_param* }
+%extra_argument { struct cq_irc_message* data }
 
 %include {
 	#include "irc-types.h"
@@ -17,48 +16,29 @@
 	#include <stdlib.h>
 }
 
-message ::= prefix command params(D) trailing(E) CRLF. {
-	/* Let's try transitioning through params... */
-	struct cq_irc_param *param = D;
-
-	printf("Trailing: %s\n", E);
-
-	while (param != NULL) {
-		printf("Parameter: %s\n", param->data);
-		param = param->prev;
-	}
-}
+message ::= prefix command params trailing.
 
 prefix ::= .
-prefix(A) ::= SOURCE(B) user(C) host(D). { 
-	A.source = B;
-	A.user = C;
-	A.host = D;
+prefix ::= SOURCE(A) user host. { 
+		data->prefix.source = A;
+	}
 
-	printf("Source: %s\n", A.source);
-	printf("User: %s\n", A.user);
-	printf("Host: %s\n", A.host);
-}
+user ::= . 
+user ::= USER(A). { data->prefix.user = A; }
 
-user(A) ::= . { A = NULL; }
-user(A)	::= USER(B). { A = B; }
-
-host(A) ::= . { A = NULL; }
-host(A)	::= HOST(B). { A = B; }	
+host ::= .
+host ::= HOST(A). { data->prefix.host = A; }	
 
 command ::= CMD_PING.
 command ::= CMD_PONG.
 command ::= CMD_QUIT.	
 command ::= CMD_PRIVMSG. 
 
-params(A)	::= . { A = NULL; }
-params(A) 	::= params(B) PARAM(C). 	{ 
-		A = calloc(1, sizeof(struct cq_irc_param)); 
-
-		if (B) A->prev = B;
-		
-		A->data = C; 
+params	::= .
+params 	::= params PARAM(A). 	{ 
+		data->params.param[data->params.length] = A;
+		++data->params.length;
 	}
 
-trailing(A) ::= . { A = NULL; }
-trailing(A) ::= TRAILING(B). { A = B; }
+trailing ::= .
+trailing ::= TRAILING(A). { data->trailing = A; }

@@ -61,7 +61,7 @@ crlf 		(\r\n|\n\r)
 
 <PARAMS>{
 	" "					BEGIN(PARAM);
-	{crlf}				BEGIN(INITIAL); return IRC_TOKEN_CRLF;
+	{crlf}				BEGIN(INITIAL); return 0;
 }
 
 <PARAM>{

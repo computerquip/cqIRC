@@ -95,18 +95,30 @@ void test2()
 
 		int token = 0;
 		char *data = NULL;
+		struct cq_irc_message message = { 0 };
+
 
 		while (token = yylex(scanner, &data)) {
 
 			printf("Token %i: %s\n", token, data);
-			irc_Parse(parser, token, data);
+			irc_Parse(parser, token, data, &message);
 
 			data = NULL;
 		}
 
-		irc_Parse(parser, 0, NULL);
+		irc_Parse(parser, 0, NULL, &message);
 
-		printf("\n");
+		printf("Host: %s\n", message.prefix.host);
+		printf("Source: %s\n", message.prefix.source);
+		printf("User: %s\n", message.prefix.user);
+
+		int j;
+		for (j = 0; j < message.params.length; ++j) {
+			printf("Parameter #%i: %s\n", j, message.params.param[j]);
+		}
+
+		printf("Trailing: %s\n", message.trailing);
+
 		yy_delete_buffer(state, scanner);
 	}
 	yylex_destroy(scanner);
