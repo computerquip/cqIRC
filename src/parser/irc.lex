@@ -61,7 +61,7 @@ crlf 		(\r\n|\n\r)
 
 <PARAMS>{
 	" "					BEGIN(PARAM);
-	{crlf}				BEGIN(INITIAL); return 0;
+	{crlf}				BEGIN(INITIAL); return IRC_TOKEN_CRLF;
 }
 
 <PARAM>{
@@ -72,3 +72,5 @@ crlf 		(\r\n|\n\r)
 <TRAILING>{
 	[^\0\n\r]*			BEGIN(PARAMS); *data = strndup(yytext, yyleng); return IRC_TOKEN_TRAILING;
 }
+
+<<EOF>> 				return 0;

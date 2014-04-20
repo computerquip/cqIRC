@@ -16,7 +16,7 @@
 	#include <stdlib.h>
 }
 
-message ::= prefix command params trailing.
+message ::= prefix command params trailing CRLF.
 
 prefix ::= .
 prefix ::= SOURCE(A) user host. { 

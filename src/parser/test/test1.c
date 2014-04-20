@@ -9,10 +9,10 @@
 
 const char *test_strings[] = {
 	":dala!~lol@ack.com PONG\r\n"
-	,":skorgon!~skorgon@gateway/tor-sasl/skorgon QUIT :Remote host closed the connection\r\n"
-	,":LOLOL!~wtf@BOOTY/CALL PING 23423424\r\n"
-	,"PRIVMSG #cplusplus :hdsahfiqiu40-8325783204989-294io3j45uoi2549849-9i4u95o-4320jru35trjjoj54hn6ji54i-=59423iu58342-9=8iu29342iurutrjfnmnm 2eo0934UOIJHY8aut yu&i^*&ui&^*#iiuyeio\r\n"
-	,"QUIT a d f as awsfae 1 3 3 4 34 343 234 234 :324234234234234asfd  sd asfd\r\n"
+	":skorgon!~skorgon@gateway/tor-sasl/skorgon QUIT :Remote host closed the connection\r\n"
+	":LOLOL!~wtf@BOOTY/CALL PING 23423424\r\n"
+	"PRIVMSG #cplusplus :hdsahfiqiu40-8325783204989-294io3j45uoi2549849-9i4u95o-4320jru35trjjoj54hn6ji54i-=59423iu58342-9=8iu29342iurutrjfnmnm 2eo0934UOIJHY8aut yu&i^*&ui&^*#iiuyeio\r\n"
+	"QUIT a d f as awsfae 1 3 3 4 34 343 234 234 :324234234234234asfd  sd asfd\r\n"
 };
 
 const char *token2string_table[] = {
@@ -95,29 +95,32 @@ void test2()
 
 		int token = 0;
 		char *data = NULL;
-		struct cq_irc_message message = { 0 };
-
 
 		while (token = yylex(scanner, &data)) {
+			struct cq_irc_message message = { 0 };
+
+			do {
+				printf("Token %i: %s\n", token, data);
+				irc_Parse(parser, token, data, &message);
+
+				data = NULL;
+			} while ((token = yylex(scanner, &data)) != IRC_TOKEN_CRLF); 
 
 			printf("Token %i: %s\n", token, data);
-			irc_Parse(parser, token, data, &message);
+			irc_Parse(parser, IRC_TOKEN_CRLF, NULL, &message);
+			irc_Parse(parser, 0, NULL, &message);
 
-			data = NULL;
+			printf("Host: %s\n", message.prefix.host);
+			printf("Source: %s\n", message.prefix.source);
+			printf("User: %s\n", message.prefix.user);
+
+			int j;
+			for (j = 0; j < message.params.length; ++j) {
+				printf("Parameter #%i: %s\n", j, message.params.param[j]);
+			}
+
+			printf("Trailing: %s\n", message.trailing);
 		}
-
-		irc_Parse(parser, 0, NULL, &message);
-
-		printf("Host: %s\n", message.prefix.host);
-		printf("Source: %s\n", message.prefix.source);
-		printf("User: %s\n", message.prefix.user);
-
-		int j;
-		for (j = 0; j < message.params.length; ++j) {
-			printf("Parameter #%i: %s\n", j, message.params.param[j]);
-		}
-
-		printf("Trailing: %s\n", message.trailing);
 
 		yy_delete_buffer(state, scanner);
 	}
