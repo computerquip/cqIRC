@@ -1,3 +1,0 @@
-include_rules
-
-: makeheaders.c |> !ccld |> makeheaders

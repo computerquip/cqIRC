@@ -1,7 +1,0 @@
-include_rules
-
-PARSER = $(TOP)/src/parser
-TEST_HEADERS = $(PARSER)/irc.lex.h $(PARSER)/irc.h
-
-: test1.c | ../*.h |> !cc |> 
-: test1.o ../*.o |> !ld |> test1

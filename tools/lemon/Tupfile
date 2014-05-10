@@ -1,4 +1,0 @@
-include_rules
-
-: lemon.c |> !cc |>
-: lemon.o |> !ld |> lemon

@@ -1,15 +1,17 @@
 %x PREFIX
+%x PREFIX_END
 %x PREFIX_OPT
 %x PREFIX_HOST
 %x PREFIX_USER
 %x PARAMS
 %x PARAM
 %x TRAILING
-%x PRE_COMMAND
+%x END
 
 %option reentrant
-%option noyywrap
 %option case-insensitive
+%option noyywrap
+%option extra-type="struct cq_irc_message *"
 
 special		[\x5B-\x60\x7B-\x7D]
 hostchar	("_"|"/"|[[:alnum:]])
@@ -25,28 +27,28 @@ crlf 		(\r\n|\n\r)
 
 %{
 	#include "irc-types.h"
-	#include "irc.h"
 	#include <assert.h>
-
-	#define YY_DECL int yylex(yyscan_t yyscanner, char** data)
 %}
 
 %%
 
 <INITIAL>{
 	":"					BEGIN(PREFIX);
-	"PING"				BEGIN(PARAMS); return IRC_TOKEN_CMD_PING;
-	"PONG"				BEGIN(PARAMS); return IRC_TOKEN_CMD_PONG;
-	"QUIT"  			BEGIN(PARAMS); return IRC_TOKEN_CMD_QUIT;
-	"PRIVMSG"			BEGIN(PARAMS); return IRC_TOKEN_CMD_PRIVMSG;
+	"PING"				BEGIN(PARAMS); 
+	"PONG"				BEGIN(PARAMS); 
+	"QUIT"  			BEGIN(PARAMS); 
+	"PRIVMSG"			BEGIN(PARAMS); 
+	"NOTICE"			BEGIN(PARAMS); 
+	"ERROR"				BEGIN(PARAMS);
+	.					return -1; /* Unknown Command */
 }
 
 <PREFIX>{
-	{nickname} 			BEGIN(PREFIX_OPT); *data = strndup(yytext, yyleng); return IRC_TOKEN_SOURCE;
-	{servername}		BEGIN(PRE_COMMAND); *data = strndup(yytext, yyleng); return IRC_TOKEN_SOURCE;
+	{nickname} 			BEGIN(PREFIX_OPT); yyextra->prefix.source = strndup(yytext, yyleng);
+	{servername}		BEGIN(PREFIX_END); yyextra->prefix.source = strndup(yytext, yyleng); 
 }
 
-<PRE_COMMAND>{
+<PREFIX_END>{
 	" " 				BEGIN(INITIAL);
 }
 
@@ -56,21 +58,27 @@ crlf 		(\r\n|\n\r)
 	" "					BEGIN(INITIAL);
 }
 
-<PREFIX_USER>{user} 	BEGIN(PREFIX_OPT); *data = strndup(yytext, yyleng); return IRC_TOKEN_USER;
-<PREFIX_HOST>{host} 	BEGIN(PREFIX_OPT); *data = strndup(yytext, yyleng); return IRC_TOKEN_HOST;
+<PREFIX_USER>{user} 	BEGIN(PREFIX_OPT); yyextra->prefix.user = strndup(yytext, yyleng);
+<PREFIX_HOST>{host} 	BEGIN(PREFIX_OPT); yyextra->prefix.host = strndup(yytext, yyleng);
 
 <PARAMS>{
 	" "					BEGIN(PARAM);
-	{crlf}				BEGIN(INITIAL); return IRC_TOKEN_CRLF;
+	{crlf}				BEGIN(END);
+}
+
+<END>{
+	<<EOF>>				return 0;
 }
 
 <PARAM>{
 	":"					BEGIN(TRAILING);
-	{middle}			BEGIN(PARAMS); *data = strndup(yytext, yyleng); return IRC_TOKEN_PARAM;
+	{middle}			BEGIN(PARAMS); yyextra->params.param[yyextra->params.length] = strndup(yytext, yyleng); ++yyextra->params.length;
 }
 
 <TRAILING>{
-	[^\0\n\r]*			BEGIN(PARAMS); *data = strndup(yytext, yyleng); return IRC_TOKEN_TRAILING;
+	[^\0\n\r]*			BEGIN(PARAMS); yyextra->trailing = strndup(yytext, yyleng);
 }
 
-<<EOF>> 				return 0;
+<<EOF>>					return -2;  /* Not enough input */
+
+%%
