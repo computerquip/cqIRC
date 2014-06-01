@@ -1,0 +1,9 @@
+include_rules
+
+CPP = g++
+LIBS += -lboost_system -pthread
+
+: foreach *.lex |> flex --outfile=%b.c --header-file=%b.h %f |> | %b.c %b.h
+: foreach *.c++ | *.h |> !cpp |>
+: foreach *.c   | *.h |> !cc |>
+: *.o |> !cpplibld |> libcq_irc_client.so

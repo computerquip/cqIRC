@@ -1,9 +1,0 @@
-include_rules
-
-CPP = g++
-LIBS += -lboost_system -pthread
-INCLUDE += -I$(TOP)/src/parser
-OBJS += $(TOP)/src/parser/*.o
-
-: irc-client.c++ | $(TOP)/src/parser/*.h irc-client.h |> !cpp |>
-: $(OBJS) irc-client.o |> !cppld |> client
