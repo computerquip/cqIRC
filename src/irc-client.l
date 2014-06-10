@@ -11,7 +11,9 @@
 %option reentrant
 %option case-insensitive
 %option noyywrap
-%option extra-type="struct cq_irc_proxy *"
+%option nounput
+%option noinput
+%option extra-type="struct cq_irc_flex_info *"
 
 special		[\x5B-\x60\x7B-\x7D]
 hostchar	("_"|"/"|[[:alnum:]])
@@ -26,8 +28,9 @@ middle		[^\:\0\r\n\ ][^\ \0\r\n]*
 crlf 		(\r\n|\n\r)
 
 %{
-	#include "irc-proxy.h"
+	#include "irc-client-internal.h++"
 	#include <assert.h>
+	#include <string.h>
 %}
 
 %%
@@ -44,8 +47,8 @@ crlf 		(\r\n|\n\r)
 }
 
 <PREFIX>{
-	{nickname} 			BEGIN(PREFIX_OPT); yyextra->message->prefix.source = strndup(yytext, yyleng);
-	{servername}		BEGIN(PREFIX_END); yyextra->message->prefix.source = strndup(yytext, yyleng); 
+	{nickname} 			BEGIN(PREFIX_OPT); yyextra->proxy->message->prefix.source = strndup(yytext, yyleng);
+	{servername}		BEGIN(PREFIX_END); yyextra->proxy->message->prefix.source = strndup(yytext, yyleng); 
 }
 
 <PREFIX_END>{
@@ -58,8 +61,8 @@ crlf 		(\r\n|\n\r)
 	" "					BEGIN(INITIAL);
 }
 
-<PREFIX_USER>{user} 	BEGIN(PREFIX_OPT); yyextra->message->prefix.user = strndup(yytext, yyleng);
-<PREFIX_HOST>{host} 	BEGIN(PREFIX_OPT); yyextra->message->prefix.host = strndup(yytext, yyleng);
+<PREFIX_USER>{user} 	BEGIN(PREFIX_OPT); yyextra->proxy->message->prefix.user = strndup(yytext, yyleng);
+<PREFIX_HOST>{host} 	BEGIN(PREFIX_OPT); yyextra->proxy->message->prefix.host = strndup(yytext, yyleng);
 
 <PARAMS>{
 	" "					BEGIN(PARAM);
@@ -67,18 +70,16 @@ crlf 		(\r\n|\n\r)
 }
 
 <END>{
-	<<EOF>>				yyextra->signal(yyextra); return 0;
+	<<EOF>>				yyextra->signal(yyextra->proxy); return 0;
 }
 
 <PARAM>{
 	":"					BEGIN(TRAILING);
-	{middle}			BEGIN(PARAMS); yyextra->message->params.param[yyextra->message->params.length] = strndup(yytext, yyleng); ++yyextra->message->params.length;
+	{middle}			BEGIN(PARAMS); yyextra->proxy->message->params.param[yyextra->proxy->message->params.length] = strndup(yytext, yyleng); ++yyextra->proxy->message->params.length;
 }
 
 <TRAILING>{
-	[^\0\n\r]*			BEGIN(PARAMS); yyextra->message->trailing = strndup(yytext, yyleng);
+	[^\0\n\r]*			BEGIN(PARAMS); yyextra->proxy->message->trailing = strndup(yytext, yyleng);
 }
 
 <<EOF>>					return -2;  /* Not enough input */
-
-%%

@@ -1,0 +1,22 @@
+FlexAction = Action('$LEX -f --header-file=${TARGETS[0]} --outfile=${TARGETS[1]} $SOURCE')
+FlexBuilder = Builder(single_source=1, action=FlexAction)
+
+env = Environment(
+	CXXFLAGS=['-std=c++11'], 
+	CFLAGS=['-std=gnu99'],
+	BUILDERS={'Flex':FlexBuilder})
+
+# Our ARGUMENTS dictionary is a string:string dictionary...
+if int(ARGUMENTS.get('debug', 1)) == True:
+	env.Append(CCFLAGS = ['-g', '-Wall'])
+else:
+	env.Append(CCFLAGS = ['-Wall', '-O2'])
+
+sources = ['irc-client.c++', 'irc-lex.c++']
+libs = ['boost_system', 'pthread']
+
+lexer = env.Flex(target = ['irc-lex.h++', 'irc-lex.c++'], source='irc-client.l')
+env.Append(LIBS = libs)
+
+library = env.SharedLibrary('cq_irc_client', sources)
+env.Depends(library, lexer)

@@ -1,0 +1,8 @@
+env = Environment(
+	CCFLAGS = ['-g', '-Isrc', '-Lsrc'],
+	CXXFLAGS = ['-std=c++11'], 
+	CFLAGS = ['-std=gnu99'],
+	LIBPATH = ['#/src'],
+	LIBS = ['cq_irc_client'])
+
+env.Program('test1', 'test1.c')
