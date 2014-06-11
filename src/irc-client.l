@@ -31,24 +31,26 @@ crlf 		(\r\n|\n\r)
 	#include "irc-client-internal.h++"
 	#include <assert.h>
 	#include <string.h>
+
+	#define IRC_EVENT_TEST(name) \
+		do { if (yyextra->session->callbacks.signal_##name) yyextra->signal = yyextra->session->callbacks.signal_##name; else return 1; } while(0)
 %}
 
 %%
 
 <INITIAL>{
 	":"					BEGIN(PREFIX);
-	"PING"				BEGIN(PARAMS); yyextra->signal = signal_ping_proxy;
-	"PONG"				BEGIN(PARAMS); yyextra->signal = signal_pong_proxy;
-	"QUIT"  			BEGIN(PARAMS); yyextra->signal = signal_quit_proxy;
-	"PRIVMSG"			BEGIN(PARAMS); yyextra->signal = signal_privmsg_proxy;
-	"NOTICE"			BEGIN(PARAMS); yyextra->signal = signal_notice_proxy;
-	"ERROR"				BEGIN(PARAMS); yyextra->signal = signal_error_proxy;
+	"004"				BEGIN(PARAMS); IRC_EVENT_TEST(welcome);
+	"PING"				BEGIN(PARAMS); IRC_EVENT_TEST(ping);
+	"PRIVMSG"			BEGIN(PARAMS); IRC_EVENT_TEST(privmsg);
+	"NOTICE"			BEGIN(PARAMS); IRC_EVENT_TEST(notice);
+	"ERROR"				BEGIN(PARAMS); IRC_EVENT_TEST(error);
 	.					return -1; /* Unknown Command */
 }
 
 <PREFIX>{
-	{nickname} 			BEGIN(PREFIX_OPT); yyextra->proxy->message->prefix.source = strndup(yytext, yyleng);
-	{servername}		BEGIN(PREFIX_END); yyextra->proxy->message->prefix.source = strndup(yytext, yyleng); 
+	{nickname} 			BEGIN(PREFIX_OPT); yyextra->message->prefix.source = strndup(yytext, yyleng);
+	{servername}		BEGIN(PREFIX_END); yyextra->message->prefix.source = strndup(yytext, yyleng); 
 }
 
 <PREFIX_END>{
@@ -61,8 +63,8 @@ crlf 		(\r\n|\n\r)
 	" "					BEGIN(INITIAL);
 }
 
-<PREFIX_USER>{user} 	BEGIN(PREFIX_OPT); yyextra->proxy->message->prefix.user = strndup(yytext, yyleng);
-<PREFIX_HOST>{host} 	BEGIN(PREFIX_OPT); yyextra->proxy->message->prefix.host = strndup(yytext, yyleng);
+<PREFIX_USER>{user} 	BEGIN(PREFIX_OPT); yyextra->message->prefix.user = strndup(yytext, yyleng);
+<PREFIX_HOST>{host} 	BEGIN(PREFIX_OPT); yyextra->message->prefix.host = strndup(yytext, yyleng);
 
 <PARAMS>{
 	" "					BEGIN(PARAM);
@@ -70,16 +72,16 @@ crlf 		(\r\n|\n\r)
 }
 
 <END>{
-	<<EOF>>				yyextra->signal(yyextra->proxy); return 0;
+	<<EOF>>				yyextra->signal(yyextra->session, yyextra->message); return 0;
 }
 
 <PARAM>{
 	":"					BEGIN(TRAILING);
-	{middle}			BEGIN(PARAMS); yyextra->proxy->message->params.param[yyextra->proxy->message->params.length] = strndup(yytext, yyleng); ++yyextra->proxy->message->params.length;
+	{middle}			BEGIN(PARAMS); yyextra->message->params.param[yyextra->message->params.length] = strndup(yytext, yyleng); ++yyextra->message->params.length;
 }
 
 <TRAILING>{
-	[^\0\n\r]*			BEGIN(PARAMS); yyextra->proxy->message->trailing = strndup(yytext, yyleng);
+	[^\0\n\r]*			BEGIN(PARAMS); yyextra->message->trailing = strndup(yytext, yyleng);
 }
 
 <<EOF>>					return -2;  /* Not enough input */

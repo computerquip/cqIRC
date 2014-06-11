@@ -12,7 +12,7 @@ if int(ARGUMENTS.get('debug', 1)) == True:
 else:
 	env.Append(CCFLAGS = ['-Wall', '-O2'])
 
-sources = ['irc-client.c++', 'irc-lex.c++']
+sources = ['irc-client.c++', 'irc-lex.c++', 'format.cc']
 libs = ['boost_system', 'pthread']
 
 lexer = env.Flex(target = ['irc-lex.h++', 'irc-lex.c++'], source='irc-client.l')
