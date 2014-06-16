@@ -1,8 +1,11 @@
 env = Environment(
-	CCFLAGS = ['-g', '-Isrc', '-Lsrc'],
-	CXXFLAGS = ['-std=c++11'], 
-	CFLAGS = ['-std=gnu99'],
+	CCFLAGS = [ '-Isrc', '-Lsrc', '-std=c99'],
 	LIBPATH = ['#/src'],
-	LIBS = ['cq_irc_client'])
+	LIBS = ['cq_irc_client', 'stdc++', 'boost_system', 'pthread'])
+
+if int(ARGUMENTS.get('debug', 1)) == True:
+	env.Append(CCFLAGS = ['-g', '-Wall'])
+else:
+	env.Append(CCFLAGS = ['-Wall', '-O2'])
 
 env.Program('test1', 'test1.c')

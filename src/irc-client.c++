@@ -6,18 +6,7 @@ namespace {
 
 	using namespace std::placeholders;
 
-	void cq_irc_message_destroy(cq_irc_message* msg)
-	{
-		free(msg->prefix.host);
-		free(msg->prefix.source);
-		free(msg->prefix.user);
 
-		for (int j = 0; j < msg->params.length; ++j) {
-			free(msg->params.param[j]);
-		}
-
-		free(msg->trailing);
-	}
 
 	void thread_parse(cq_irc_session *session, mutable_buffer buf)
 	{
@@ -25,15 +14,8 @@ namespace {
 		/* Flexical analyzer */
 		yyscan_t scanner;
 		YY_BUFFER_STATE state;
-	    struct cq_irc_message message = { 0 };
 
-		struct cq_irc_flex_info info = {
-			.signal = NULL,
-			.session = session,
-			.message = &message
-		};
-
-		if (yylex_init_extra(&info, &scanner) != 0) {
+		if (yylex_init_extra(session, &scanner) != 0) {
 			printf("Failed to initialize Flexical Analyzer.\n");
 			return;
 		}
@@ -48,10 +30,8 @@ namespace {
 		{
 			int result = yylex(scanner);
 
-			cq_irc_message_destroy(&message);
-
 			if (result > 0) { /* Skipped */
-				printf("Missing callback, skipped parsing stage.");
+				printf("Missing callback, skipped parsing stage.\n");
 			}
 			if (result < 0) { /* Error */
 				printf("Failed to parse message!\n");
@@ -75,11 +55,15 @@ namespace {
 		/* Extra two bytes are for Flex so we don't require a copy buffer. */
 		int buf_size = msg_size + 2;
 
-		if (error == error::bad_descriptor || /* Strangely caused by closing the socket. */
-			error == error::eof ) 
-		{
+		if (error == error::eof ) {
 			session->callbacks.signal_disconnect(session);
 			return;
+		} else if (error == error::operation_aborted) {
+			if (!session->socket.is_open()) {
+				session->callbacks.signal_disconnect(session);
+				printf("Connection closed by client.\n");
+				return;
+			}
 		} else if (error) {
 			printf("Reading Error: %s\n", error.message().c_str());
 			return;
@@ -146,7 +130,7 @@ namespace {
 
 extern "C" {
 
-cq_irc_session *cq_irc_session_create(
+cq_irc_session *cq_irc_session_connect(
 	struct cq_irc_service* service,
 	const char* host, 
 	const char *port,
@@ -162,6 +146,12 @@ cq_irc_session *cq_irc_session_create(
 	session->callbacks = *callbacks;
 
 	return session;
+}
+
+void cq_irc_session_disconnect(struct cq_irc_session *session)
+{
+	session->socket.shutdown(ip::tcp::socket::shutdown_both);
+	session->socket.close();
 }
 
 void cq_irc_session_destroy(struct cq_irc_session *session)

@@ -1,23 +1,22 @@
+%x GENERIC_INITIAL
+%x GENERIC_PARAMS
 %x PREFIX
-%x PREFIX_END
 %x PREFIX_OPT
-%x PREFIX_HOST
-%x PREFIX_USER
 %x PARAMS
 %x PARAM
 %x TRAILING
-%x END
 
+%option stack
 %option reentrant
-%option case-insensitive
 %option noyywrap
 %option nounput
 %option noinput
-%option extra-type="struct cq_irc_flex_info *"
+%option extra-type="struct cq_irc_session *"
 
 special		[\x5B-\x60\x7B-\x7D]
 hostchar	("_"|"/"|[[:alnum:]])
 
+command 	[[:alpha:]]+|[[:digit:]]{3}
 user 		[^\0\r\n\x20\@]+
 nickname	([[:alpha:]]|{special})([[:alnum:]]|{special}|"-")*{0,8}
 shortname	[[:alnum:]]([[:alnum:]]|"-")*[[:alnum:]]*
@@ -33,55 +32,99 @@ crlf 		(\r\n|\n\r)
 	#include <string.h>
 
 	#define IRC_EVENT_TEST(name) \
-		do { if (yyextra->session->callbacks.signal_##name) yyextra->signal = yyextra->session->callbacks.signal_##name; else return 1; } while(0)
+		do { \
+			if (yyextra->callbacks.signal_##name) \
+				event_signal = yyextra->callbacks.signal_##name; \
+			else { \
+				destroy_message(&message); \
+				return 1; \
+			} \
+		} while(0) 
+
+	#define IRC_EVENT_TEST_EXTRA(name, extra) \
+		do { \
+			if (yyextra->callbacks.signal_##name) { \
+				extra_event_signal = yyextra->callbacks.signal_##name; \
+				command = (extra); \
+			} \
+			else { \
+				destroy_message(&message); \
+				free(extra); \
+				return 1; \
+			} \
+		} while(0) \
+
+	#define IRC_ADD_PARAM(X) \
+		do { message.params.param[message.params.length] = (X); ++message.params.length; } while(0)
+
+	static void destroy_message(cq_irc_message* msg)
+	{
+		free(msg->prefix.host);
+		free(msg->prefix.source);
+		free(msg->prefix.user);
+	
+		for (int j = 0; j < msg->params.length; ++j) {
+			free(msg->params.param[j]);
+		}
+
+		free(msg->trailing);
+	}
 %}
 
 %%
+%{
+	void (*event_signal)(struct cq_irc_session*, struct cq_irc_message*);
+	void (*extra_event_signal)(struct cq_irc_session*, const char* command, struct cq_irc_message*);
+	
+	char *command = NULL; /* We only set this if we don't determine what event it is so the user can figure it out himself. */
+	struct cq_irc_message message = { 0 };
+
+	if (yyextra->use_generic == true)
+		yy_push_state(GENERIC_INITIAL, yyscanner);
+%}
 
 <INITIAL>{
-	":"					BEGIN(PREFIX);
-	"004"				BEGIN(PARAMS); IRC_EVENT_TEST(welcome);
-	"PING"				BEGIN(PARAMS); IRC_EVENT_TEST(ping);
-	"PRIVMSG"			BEGIN(PARAMS); IRC_EVENT_TEST(privmsg);
-	"NOTICE"			BEGIN(PARAMS); IRC_EVENT_TEST(notice);
-	"ERROR"				BEGIN(PARAMS); IRC_EVENT_TEST(error);
-	.					return -1; /* Unknown Command */
+	":"			yy_push_state(PREFIX, yyscanner);
+	(?i:"004")		yy_push_state(PARAMS, yyscanner); IRC_EVENT_TEST(welcome);
+	(?i:"PING")		yy_push_state(PARAMS, yyscanner); IRC_EVENT_TEST(ping);
+	(?i:"PRIVMSG")		yy_push_state(PARAMS, yyscanner); IRC_EVENT_TEST(privmsg);
+	(?i:"NOTICE")		yy_push_state(PARAMS, yyscanner); IRC_EVENT_TEST(notice);
+	(?i:"ERROR")		yy_push_state(PARAMS, yyscanner); IRC_EVENT_TEST(error);
+	{command}		yy_push_state(GENERIC_PARAMS, yyscanner); IRC_EVENT_TEST_EXTRA(unknown, strndup(yytext, yyleng));
+}
+
+<GENERIC_INITIAL>{
+	":"			yy_push_state(PREFIX, yyscanner);
+	{command}		yy_push_state(GENERIC_PARAMS, yyscanner); IRC_EVENT_TEST_EXTRA(unknown, strndup(yytext, yyleng));
 }
 
 <PREFIX>{
-	{nickname} 			BEGIN(PREFIX_OPT); yyextra->message->prefix.source = strndup(yytext, yyleng);
-	{servername}		BEGIN(PREFIX_END); yyextra->message->prefix.source = strndup(yytext, yyleng); 
-}
-
-<PREFIX_END>{
-	" " 				BEGIN(INITIAL);
+	{nickname}|{servername} yy_push_state(PREFIX_OPT, yyscanner); message.prefix.source = strndup(yytext, yyleng);
 }
 
 <PREFIX_OPT>{
-	"!"					BEGIN(PREFIX_USER);
-	"@"					BEGIN(PREFIX_HOST);
-	" "					BEGIN(INITIAL);
+	"!{user}"		message.prefix.user = strndup(yytext + 1, yyleng - 1);
+	"@{host}"		message.prefix.host = strndup(yytext + 1, yyleng - 1);
+	" "			yy_pop_state(yyscanner); yy_pop_state(yyscanner);
 }
 
-<PREFIX_USER>{user} 	BEGIN(PREFIX_OPT); yyextra->message->prefix.user = strndup(yytext, yyleng);
-<PREFIX_HOST>{host} 	BEGIN(PREFIX_OPT); yyextra->message->prefix.host = strndup(yytext, yyleng);
+<GENERIC_PARAMS>{
+	" "			yy_push_state(PARAM, yyscanner);
+	{crlf}			extra_event_signal(yyextra, command, &message); destroy_message(&message); free(command); return 0;
+}
 
 <PARAMS>{
-	" "					BEGIN(PARAM);
-	{crlf}				BEGIN(END);
-}
-
-<END>{
-	<<EOF>>				yyextra->signal(yyextra->session, yyextra->message); return 0;
+	" "			yy_push_state(PARAM, yyscanner);
+	{crlf}			event_signal(yyextra, &message); destroy_message(&message); return 0;
 }
 
 <PARAM>{
-	":"					BEGIN(TRAILING);
-	{middle}			BEGIN(PARAMS); yyextra->message->params.param[yyextra->message->params.length] = strndup(yytext, yyleng); ++yyextra->message->params.length;
+	":"			yy_push_state(TRAILING, yyscanner);
+	{middle}		yy_pop_state(yyscanner); IRC_ADD_PARAM(strndup(yytext, yyleng));
 }
 
 <TRAILING>{
-	[^\0\n\r]*			BEGIN(PARAMS); yyextra->message->trailing = strndup(yytext, yyleng);
+	[^\0\n\r]*		yy_pop_state(yyscanner); yy_pop_state(yyscanner); message.trailing = strndup(yytext, yyleng);
 }
 
-<<EOF>>					return -2;  /* Not enough input */
+<<EOF>>				destroy_message(&message); free(command); return -2;  /* Not enough input */

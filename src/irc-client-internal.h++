@@ -10,12 +10,6 @@
 using namespace boost::system;
 using namespace boost::asio;
 
-struct cq_irc_flex_info {
-	void(*signal)(struct cq_irc_session*, struct cq_irc_message*);
-	struct cq_irc_session* session;
-	struct cq_irc_message* message;
-};
-
 struct cq_irc_service {
 	io_service service;
 };
@@ -35,4 +29,5 @@ struct cq_irc_session {
 
 	struct cq_irc_callbacks callbacks;
 	struct cq_irc_service *service;
+	int use_generic = 0;
 };

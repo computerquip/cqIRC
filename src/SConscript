@@ -13,10 +13,8 @@ else:
 	env.Append(CCFLAGS = ['-Wall', '-O2'])
 
 sources = ['irc-client.c++', 'irc-lex.c++', 'format.cc']
-libs = ['boost_system', 'pthread']
 
 lexer = env.Flex(target = ['irc-lex.h++', 'irc-lex.c++'], source='irc-client.l')
-env.Append(LIBS = libs)
 
-library = env.SharedLibrary('cq_irc_client', sources)
+library = env.StaticLibrary('cq_irc_client', sources)
 env.Depends(library, lexer)
