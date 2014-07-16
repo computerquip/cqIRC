@@ -1,0 +1,10 @@
+src/format.cc
+src/format.h
+src/irc-client.cpp
+src/irc-client.h
+tests/test1.c
+src/irc-client-internal.hpp
+src/irc-client.l
+src/SConscript
+tests/SConscript
+SConstruct
